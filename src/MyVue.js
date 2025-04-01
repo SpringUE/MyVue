@@ -226,28 +226,6 @@ function flushCallbacks() {
     copies.forEach(cb => cb())
 }
 
-// onMounted
-const onMountedCallbacks = new Set()
-export function onMounted1(callback) {
-    onMountedCallbacks.add(callback)
-}
-
-function mounted1(vm) {
-    onMountedCallbacks.forEach(cb => cb(vm));
-    onMountedCallbacks.clear()
-}
-
-// onUpdated
-const onUpdatedCallbacks = new Set()
-export function onUpdated1(callback) {
-    onUpdatedCallbacks.add(callback)
-}
-
-function updated1(vm) {
-    onUpdatedCallbacks.forEach(cb => cb(vm));
-    // onUpdatedCallbacks.clear()
-}
-
 function renderVNode(vnode, parent, oldDom) {
     let el;
 
@@ -256,9 +234,6 @@ function renderVNode(vnode, parent, oldDom) {
         el = document.createTextNode(vnode.text || vnode);
     }
     else if (typeof vnode.type === 'object') {
-        // const subNodeRender = resolveComponent(vnode.type);
-        // const subNode = subNodeRender();
-        // el = renderVNode(subNode, parent, el);
         const { render } = createRenderer();
         render(vnode, parent);
         el = vnode.component.vnode.el;
@@ -310,18 +285,6 @@ function setProps(el, props) {
     }
 }
 
-function resolveComponent(component) {
-    const { setup, render } = component || {}
-    const _ctx = {};
-    const _cache = [];
-    const $props = {};
-    const $setup = setup({}, { expose: () => { } });
-    const $data = {};
-    const $options = {};
-
-    return () => render(_ctx, _cache, $props, $setup, $data, $options);
-}
-
 
 // 生命周期队列管理
 let currentInstance = null;
@@ -334,7 +297,7 @@ function createHookQueue() {
 
 // 组合式API入口
 function setupComponent(instance, setup) {
-    const hooks = createHookQueue();
+    // const hooks = createHookQueue();
     currentInstance = instance;
 
     // 创建上下文
@@ -381,27 +344,6 @@ class ComponentInstance {
 function createRenderer() {
     // 创建渲染副作用
     function setupRenderEffect(instance, container) {
-        /*
-        instance.update = () => {
-          const subTree = instance.render.call(instance.state);
-          
-          if (!instance.isMounted) {
-            // 首次挂载
-            patch(null, subTree, container);
-            instance.isMounted = true;
-            instance.hooks.mounted.forEach(hook => hook());
-          } else {
-            // 更新阶段
-            patch(instance.vnode, subTree, container);
-            instance.hooks.updated.forEach(hook => hook());
-          }
-          instance.vnode = subTree;
-        };
-        
-        // 简版响应式追踪
-        instance.update();
-        */
-
         const renderEffect = new ReactiveEffect(() => {
             const _ctx = {};
             const _cache = [];
@@ -447,15 +389,10 @@ function createRenderer() {
     // DOM操作（简版）
     function patch(n1, n2, container) {
         if (!n1) {
-            //   const el = document.createElement(n2.type);
-            //   el.textContent = n2.children;
-            //   container.appendChild(el);
             const el = renderVNode(n2, container, null)
             n2.el = el;
         } else {
-            // const el = n2.el = n1.el;
             if (n2.children !== n1.children) {
-                // el.textContent = n2.children;
                 const el = renderVNode(n2, container, n1.el);
                 n2.el = el;
             }
@@ -477,24 +414,6 @@ function createRenderer() {
 // createApp
 export function createApp(vNodeRoot) {
     const mount = (id) => {
-        /*
-        let dom;
-        const render = resolveComponent(vNodeRoot);
-        const rootTarget = document.querySelector(id);
-        const renderEffect = new ReactiveEffect(() => {
-            const vNodeRoot = render();
-            dom = renderVNode(vNodeRoot, rootTarget, dom);
-
-            if (!isMounted) {
-                isMounted = true
-                mounted({ el: dom });
-            } else {
-                updated({ el: dom });
-            }
-        });
-        renderEffect.run();
-        */
-
         const vNode = {type: vNodeRoot}
         const { render } = createRenderer();
         render(vNode, document.querySelector(id));

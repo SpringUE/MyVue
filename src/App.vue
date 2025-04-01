@@ -2,12 +2,11 @@
 import Inputer from './components/Inputer.vue'
 import {  reactive, ref, computed, watch, watchEffect, nextTick, onMounted, onUpdated } from './MyVue';
 
-const state = reactive({ count: 0, number: 0 });
+const state = reactive({ count: 0, watcher: 0 });
 const num = ref(0);
 const doubed = computed(() => { 
-    return state.count * 2 + state.number + num.value
+    return state.count * 2 + num.value
 });
-const watcher = ref(0);
 
 onMounted(({ el }) => {
     console.log('onMounted1:App');
@@ -20,7 +19,6 @@ onUpdated(({ el }) => {
 // 交互方法
 const increment = () => {
     state.count++;
-    state.number++;
     setTimeout(async () => {
         num.value++;
 
@@ -42,7 +40,7 @@ const startWatch = () => {
     // watch
     $stopWatch = watch(() => [state.count, num.value], (newVal, oldVal) => {
         console.log(`watch: count && num changed ${oldVal} => ${newVal}`);
-        watcher.value++
+        state.watcher++
     });
 };
 // stopWatch
@@ -68,10 +66,9 @@ onMounted(({ el }) => {
   <div class="vue3-reactive-demo">
     <h1>Vue3 reactive demo</h1>
     <p>count: {{state.count}}</p>
-    <p>number: {{state.number}}</p>
     <p>num: {{num}}</p>
-    <p>Computed: {{doubed}} (count * 2 + number + num)</p>
-    <p>watcher: {{watcher}}</p>
+    <p>Computed: {{doubed}} (count * 2 + num)</p>
+    <p>watch: {{state.watcher}} times</p>
     <button @click="increment">Increment</button>
     <button @click="startWatch">Start Watch</button>
     <button @click="stopWatch">Stop Watch</button>
