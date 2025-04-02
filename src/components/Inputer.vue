@@ -29,11 +29,11 @@ onUpdated(() => {
 <template>
   <div class="inputer">
     <h2>{{ title }}</h2>
-    <div class="card">
-      <div>props.number is {{ number }}</div>
-      <div>Value is {{ text }}</div>
+    <section>
+      <p>props.number is {{ number }}</p>
+      <p>Value is {{ text }}</p>
       <input type="text" :value="text.value" @change="onChange" />
-    </div>
+    </section>
   </div>
 </template>
 
