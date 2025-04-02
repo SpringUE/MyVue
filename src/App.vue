@@ -32,10 +32,10 @@ const incrementNum = async () => {
   console.log('nextTick number');
 };
 // watch
-let $stopWatch;
+let $stopWatch = ref(null);
 const startWatch = () => {
     // watch
-    $stopWatch = watch(() => [state.count, number.value], (newVal, oldVal) => {
+    $stopWatch.value = watch(() => [state.count, number.value], (newVal, oldVal) => {
         console.log(`watch: count && number changed ${oldVal} => ${newVal}`);
         state.watcher++
     });
@@ -43,7 +43,8 @@ const startWatch = () => {
 // stopWatch
 const stopWatch = () => {
     // watch
-    $stopWatch?.();
+    $stopWatch?.value?.();
+    $stopWatch.value = null
 };
 
 watchEffect(() => {
@@ -68,8 +69,8 @@ onMounted(({ el }) => {
     <p>watch: {{state.watcher}} times</p>
     <button @click="increment">Count+</button>
     <button @click="incrementNum">Num+</button>
-    <button @click="startWatch">Start Watch</button>
-    <button @click="stopWatch">Stop Watch</button>
+    <button v-if="$stopWatch.value" @click="stopWatch">Stop Watch</button>
+    <button v-else @click="startWatch">Start Watch</button>
     
     <Inputer :number="number" />
 
