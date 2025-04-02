@@ -1,15 +1,15 @@
 <script setup>
 import {  reactive, ref, computed, watch, watchEffect, nextTick, onMounted, onUpdated } from '../MyVue';
 
-// defineProps({
-//   msg: String,
-// })
+const props = defineProps({
+  number: Number,
+})
 
 const title = ref('Inputer Component');
 const text = ref('test1');
 
 // watch
-const $stopWatch = watch(() => [text.value], (newVal, oldVal) => {
+watch(() => [text.value], (newVal, oldVal) => {
   console.log(`watch: text changed ${oldVal} => ${newVal}`);
 });
 
@@ -27,9 +27,10 @@ onUpdated(() => {
 </script>
 
 <template>
-  <div class="sub-test">
+  <div class="inputer">
     <h2>{{ title }}</h2>
     <div class="card">
+      <div>props.number is {{ number }}</div>
       <div>Value is {{ text }}</div>
       <input type="text" :value="text.value" @change="onChange" />
     </div>
@@ -37,7 +38,5 @@ onUpdated(() => {
 </template>
 
 <style scoped>
-.read-the-docs {
-  color: #888;
-}
+
 </style>

@@ -226,7 +226,7 @@ function flushCallbacks() {
     copies.forEach(cb => cb())
 }
 
-function renderVNode(vnode, parent, oldDom) {
+function renderVNode(vNodeOld, vnode, parent) {
     let el;
 
     // 处理文本节点
@@ -234,9 +234,17 @@ function renderVNode(vnode, parent, oldDom) {
         el = document.createTextNode(vnode.text || vnode);
     }
     else if (typeof vnode.type === 'object') {
-        const { render } = createRenderer();
-        render(vnode, parent);
-        el = vnode.component.vnode.el;
+        if (vNodeOld?.component?.isMounted) {
+            vnode.component = vNodeOld.component;
+            vnode.component.updateContainer(parent);
+            // 以存在节点直接挂载到父容器
+            parent.appendChild(vnode.component.vnode.el);
+            return;
+        } else {
+            const { render } = createRenderer();
+            render(vnode, parent);
+            el = vnode.component.vnode.el;
+        }
     }
     else if (typeof vnode.type === 'symbol') {
         el = document.createTextNode(vnode.children || vnode);
@@ -252,14 +260,31 @@ function renderVNode(vnode, parent, oldDom) {
 
         // 递归渲染子节点
         if (vnode.children) {
-            [].concat(vnode.children || []).forEach(child => {
-                renderVNode(child, el);
+            [].concat(vnode.children || []).forEach((child, index) => {
+                let childEl;
+                if (typeof child.type === 'object') {
+                    const vChildNodeOld = vNodeOld?.children?.find(x =>  x.type.__hmrId === child.type.__hmrId);
+                    childEl = renderVNode(vChildNodeOld, child, el);
+                } else {
+                    childEl = renderVNode(null, child, el);
+                }
             });
         }
     }
 
-    // 将节点挂载到父容器
-    oldDom ? parent.replaceChild(el, oldDom) : parent.appendChild(el);
+    const oldEl = vNodeOld?.component?.vnode?.el || vNodeOld?.el;
+    try {
+        if (oldEl && el !== oldEl) {
+            // 替换节点
+            parent.replaceChild(el, oldEl);
+        } else {
+            // 将节点挂载到父容器
+            parent.appendChild(el);
+        }
+
+    } catch (error) {
+        console.error(error)
+    }
     return el;
 }
 
@@ -294,6 +319,55 @@ function createHookQueue() {
         updated: []
     };
 }
+
+const getCurrentInstance = () => currentInstance;
+
+// 组件实例关联核心逻辑
+export function defineProps(definition) {
+    const instance = getCurrentInstance(); // 获取当前组件实例
+
+    if (!instance) {
+        throw new Error('defineProps() 必须在 setup() 函数内调用');
+    }
+
+    // 标准化 props 配置（基于之前的实现）
+    const normalized = normalizeProps(definition);
+
+    // 将配置挂载到组件实例
+    instance.propsOptions = normalized;
+
+    // 创建响应式 props 对象
+    const props = createPropsProxy(instance, normalized);
+
+    // 将 props 挂载到实例上下文
+    instance.props = props;
+    return props;
+}
+
+// 辅助函数实现
+function normalizeProps(definition) {
+    // 这里复用之前实现的 props 配置标准化逻辑
+    const props = {};
+    for (const key in definition) {
+        const def = definition[key];
+        props[key] = isPlainObject(def) ? def : { type: def };
+    }
+    return props;
+}
+
+function createPropsProxy(instance, propsOptions) {
+    return new Proxy({}, {
+        get(_, key) {
+            // 实际值从组件实例的 props 中获取
+            return instance.proxy.$props[key];
+        },
+        set() {
+            // props 默认不可直接修改
+            return false;
+        }
+    });
+}
+
 
 // 组合式API入口
 function setupComponent(instance, setup) {
@@ -333,10 +407,25 @@ export function onUpdated(fn) {
 class ComponentInstance {
     constructor() {
         this.state = null;
+        this.props = null;
         this.hooks = createHookQueue();
         this.isMounted = false;
         this.vnode = null;
         this.update = null;
+        this.updateContainer = null;
+    }
+}
+
+// DOM操作（简版）
+function patch(n1, n2, container) {
+    if (!n1) {
+        const el = renderVNode(null, n2, container)
+        n2.el = el;
+    } else {
+        if (n2.children !== n1.children) {
+            const el = renderVNode(n1, n2, container);
+            n2.el = el;
+        }
     }
 }
 
@@ -344,30 +433,34 @@ class ComponentInstance {
 function createRenderer() {
     // 创建渲染副作用
     function setupRenderEffect(instance, container) {
+        let currContainer = container;
         const renderEffect = new ReactiveEffect(() => {
             const _ctx = {};
             const _cache = [];
-            const $props = {};
+            const $props = instance.props || {};
             const $setup = instance.state;
             const $data = {};
             const $options = {};
 
-            const subTree = instance.render.call(instance.state, _ctx, _cache, $props, $setup, $data, $options);
+            const vnode = instance.render.call(instance.state, _ctx, _cache, $props, $setup, $data, $options);
             if (!instance.isMounted) {
                 // 首次挂载
-                patch(null, subTree, container);
+                patch(null, vnode, currContainer);
                 instance.isMounted = true;
-                instance.hooks.mounted.forEach(hook => hook({ el: subTree }));
+                instance.hooks.mounted.forEach(hook => hook({ el: vnode.el }));
             } else {
                 // 更新阶段
-                patch(instance.vnode, subTree, container);
-                instance.hooks.updated.forEach(hook => hook({ el: subTree }));
+                patch(instance.vnode, vnode, currContainer);
+                instance.hooks.updated.forEach(hook => hook({ el: vnode.el }));
             }
-            instance.vnode = subTree;
+            instance.vnode = vnode;
         });
 
         instance.update = () => {
             renderEffect.run();
+        }
+        instance.updateContainer =  ($container) => {
+            currContainer = $container;
         }
 
         instance.update();
@@ -380,23 +473,11 @@ function createRenderer() {
 
         // 执行组合式API
         instance.render = vnode.type.render;
+        instance.props = vnode.props;
         setupComponent(instance, vnode.type.setup);
 
         // 启动渲染
         setupRenderEffect(instance, container);
-    }
-
-    // DOM操作（简版）
-    function patch(n1, n2, container) {
-        if (!n1) {
-            const el = renderVNode(n2, container, null)
-            n2.el = el;
-        } else {
-            if (n2.children !== n1.children) {
-                const el = renderVNode(n2, container, n1.el);
-                n2.el = el;
-            }
-        }
     }
 
     return {
@@ -414,8 +495,9 @@ function createRenderer() {
 // createApp
 export function createApp(vNodeRoot) {
     const mount = (id) => {
-        const vNode = {type: vNodeRoot}
+        const vNode = { type: vNodeRoot }
         const { render } = createRenderer();
+        console.log(vNode, 'vNodeRoot')
         render(vNode, document.querySelector(id));
     };
 
@@ -424,5 +506,5 @@ export function createApp(vNodeRoot) {
 
 
 export default {
-    createApp, reactive, ref, isRef, computed, watch, watchEffect, nextTick, onMounted, onUpdated
+    createApp, reactive, ref, isRef, computed, watch, watchEffect, nextTick, onMounted, onUpdated, defineProps
 }

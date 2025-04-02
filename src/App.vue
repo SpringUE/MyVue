@@ -2,10 +2,10 @@
 import Inputer from './components/Inputer.vue'
 import {  reactive, ref, computed, watch, watchEffect, nextTick, onMounted, onUpdated } from './MyVue';
 
-const state = reactive({ count: 0, watcher: 0 });
-const num = ref(0);
+const state = reactive({ name: '', count: 0, watcher: 0 });
+const number = ref(0);
 const doubed = computed(() => { 
-    return state.count * 2 + num.value
+    return state.count * 2 + number.value
 });
 
 onMounted(({ el }) => {
@@ -19,27 +19,24 @@ onUpdated(({ el }) => {
 // 交互方法
 const increment = () => {
     state.count++;
-    setTimeout(async () => {
-        num.value++;
-
-        await nextTick();
-        // console.log('nextTick', document.getElementById('app').innerText);
-        console.log('nextTick');
-    }, 1000)
     state.name = `Updated ${state.count}`;
 
     nextTick(() => {
-        // console.log('nextTick', document.getElementById('app').innerText);
-        console.log('nextTick');
-    })
+        console.log('nextTick count');
+    });
 
+};
+const incrementNum = async () => {
+  number.value++;
+  await nextTick();
+  console.log('nextTick number');
 };
 // watch
 let $stopWatch;
 const startWatch = () => {
     // watch
-    $stopWatch = watch(() => [state.count, num.value], (newVal, oldVal) => {
-        console.log(`watch: count && num changed ${oldVal} => ${newVal}`);
+    $stopWatch = watch(() => [state.count, number.value], (newVal, oldVal) => {
+        console.log(`watch: count && number changed ${oldVal} => ${newVal}`);
         state.watcher++
     });
 };
@@ -66,30 +63,33 @@ onMounted(({ el }) => {
   <div class="vue3-reactive-demo">
     <h1>Vue3 reactive demo</h1>
     <p>count: {{state.count}}</p>
-    <p>num: {{num}}</p>
-    <p>Computed: {{doubed}} (count * 2 + num)</p>
+    <p>number: {{number}}</p>
+    <p>Computed: {{doubed}} (count * 2 + number)</p>
     <p>watch: {{state.watcher}} times</p>
-    <button @click="increment">Increment</button>
+    <button @click="increment">Count+</button>
+    <button @click="incrementNum">Num+</button>
     <button @click="startWatch">Start Watch</button>
     <button @click="stopWatch">Stop Watch</button>
     
-    <Inputer />
+    <Inputer :number="number" />
 
-    <p>
-      Check out
-      <a href="https://vuejs.org/guide/quick-start.html#local" target="_blank"
-        >create-vue</a
-      >, the official Vue + Vite starter
-    </p>
-    <p>
-      Learn more about IDE Support for Vue in the
-      <a
-        href="https://vuejs.org/guide/scaling-up/tooling.html#ide-support"
-        target="_blank"
-        >Vue Docs Scaling up Guide</a
-      >.
-    </p>
-    <p class="read-the-docs">Click on the Vite and Vue logos to learn more</p>
+    <div class="read-the-doc">
+      <p>
+        Check out
+        <a href="https://vuejs.org/guide/quick-start.html#local" target="_blank"
+          >create-vue</a
+        >, the official Vue + Vite starter
+      </p>
+      <p>
+        Learn more about IDE Support for Vue in the
+        <a
+          href="https://vuejs.org/guide/scaling-up/tooling.html#ide-support"
+          target="_blank"
+          >Vue Docs Scaling up Guide</a
+        >.
+      </p>
+      <p class="read-the-docs">Click on the Vite and Vue logos to learn more</p> 
+    </div>
   </div>
 </template>
 
@@ -105,5 +105,9 @@ onMounted(({ el }) => {
 }
 .logo.vue:hover {
   filter: drop-shadow(0 0 2em #42b883aa);
+}
+.read-the-doc {
+  color: #888;
+  font-size: 12px;
 }
 </style>
